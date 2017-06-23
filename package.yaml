@@ -1,0 +1,59 @@
+name: monad-mock
+version: 0.0.0.0
+category: Testing
+synopsis: A monad transformer for mocking mtl-style typeclasses
+description: |
+  This package provides a monad transformer that helps create “mocks” of
+  @mtl@-style typeclasses, intended for use in unit tests. A mock can be
+  executed by providing a sequence of expected monadic calls and their results,
+  and the mock will verify that the computation conforms to the expectation.
+
+  For more information, see the module documentation for "Control.Monad.Mock".
+
+copyright: 2017 CJ Affiliate by Conversant
+license: ISC
+author: Alexis King <lexi.lambda@gmail.com>
+maintainer: Alexis King <lexi.lambda@gmail.com>
+github: cjdev/monad-mock
+
+extra-source-files:
+- package.yaml
+- README.md
+- stack.yaml
+
+ghc-options: -Wall
+default-extensions:
+- DefaultSignatures
+- FlexibleContexts
+- FlexibleInstances
+- GADTs
+- GeneralizedNewtypeDeriving
+- LambdaCase
+- MultiParamTypeClasses
+- ScopedTypeVariables
+- StandaloneDeriving
+- TypeFamilies
+- TypeOperators
+
+library:
+  dependencies:
+  - base >= 4.9.0.0 && < 5
+  - constraints >= 0.3.1
+  - exceptions >= 0.6
+  - monad-control >= 1.0.0.0 && < 2
+  - mtl
+  - transformers-base
+  source-dirs: library
+
+tests:
+  monad-stub-test-suite:
+    dependencies:
+    - base
+    - monad-mock
+    - hspec
+    ghc-options:
+    - -rtsopts
+    - -threaded
+    - -with-rtsopts=-N
+    main: Main.hs
+    source-dirs: test-suite
