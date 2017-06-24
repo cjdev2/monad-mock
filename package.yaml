@@ -17,6 +17,8 @@ maintainer: Alexis King <lexi.lambda@gmail.com>
 github: cjdev/monad-mock
 
 extra-source-files:
+- CHANGELOG.md
+- LICENSE
 - package.yaml
 - README.md
 - stack.yaml
