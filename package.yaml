@@ -1,5 +1,5 @@
 name: monad-mock
-version: 0.0.0.0
+version: 0.1.0.0
 category: Testing
 synopsis: A monad transformer for mocking mtl-style typeclasses
 description: |
