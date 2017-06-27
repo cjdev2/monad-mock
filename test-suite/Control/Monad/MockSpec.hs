@@ -1,34 +1,21 @@
-module Control.Monad.MockSpec where
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
+
+module Control.Monad.MockSpec (spec) where
 
 import Prelude hiding (readFile, writeFile)
 
 import Control.Exception (evaluate)
 import Data.Function ((&))
-import Data.Type.Equality ((:~:)(..))
 import Test.Hspec
 
 import Control.Monad.Mock
+import Control.Monad.Mock.TH
 
 class Monad m => MonadFileSystem m where
   readFile :: FilePath -> m String
   writeFile :: FilePath -> String -> m ()
-
-data FileSystemAction r where
-  ReadFile :: FilePath -> FileSystemAction String
-  WriteFile :: FilePath -> String -> FileSystemAction ()
-deriving instance Eq (FileSystemAction r)
-deriving instance Show (FileSystemAction r)
-
-instance Action FileSystemAction where
-  eqAction (ReadFile a) (ReadFile b)
-    = if a == b then Just Refl else Nothing
-  eqAction (WriteFile a b) (WriteFile c d)
-    = if a == c && b == d then Just Refl else Nothing
-  eqAction _ _ = Nothing
-
-instance Monad m => MonadFileSystem (MockT FileSystemAction m) where
-  readFile a = mockAction "readFile" (ReadFile a)
-  writeFile a b = mockAction "writeFile" (WriteFile a b)
+makeAction "FileSystemAction" [ts| MonadFileSystem |]
 
 copyFileAndReturn :: MonadFileSystem m => FilePath -> FilePath -> m String
 copyFileAndReturn a b = do

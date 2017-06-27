@@ -15,11 +15,12 @@ Using `MockT`, it’s possible to test computations that use `MonadFileSystem`
 in a completely pure way:
 
 ```haskell
-copyFile :: MonadFileSystem m => FilePath -> FilePath -> m String
+copyFile :: MonadFileSystem m => FilePath -> FilePath -> m ()
 copyFile a b = do
   x <- readFile a
   writeFile b x
-  return x
+
+makeMock "FileSystemAction" [ts| MonadFileSystem |]
 
 spec = describe "copyFile" $
   it "reads a file and writes its contents to another file" $

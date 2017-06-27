@@ -19,11 +19,10 @@
   in a completely pure way:
 
   @
-  copyFile :: MonadFileSystem m => 'FilePath' -> 'FilePath' -> m 'String'
+  copyFile :: MonadFileSystem m => 'FilePath' -> 'FilePath' -> m ()
   copyFile a b = do
     x <- readFile a
     writeFile b x
-    'return' x
 
   spec = describe "copyFile" '$'
     it "reads a file and writes its contents to another file" '$'

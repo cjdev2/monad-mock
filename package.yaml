@@ -34,6 +34,7 @@ default-extensions:
 - MultiParamTypeClasses
 - ScopedTypeVariables
 - StandaloneDeriving
+- TupleSections
 - TypeFamilies
 - TypeOperators
 
@@ -42,8 +43,12 @@ library:
   - base >= 4.9.0.0 && < 5
   - constraints >= 0.3.1
   - exceptions >= 0.6
+  - haskell-src-exts
+  - haskell-src-meta
+  - th-orphans
   - monad-control >= 1.0.0.0 && < 2
   - mtl
+  - template-haskell >= 2.11.0.0 && < 2.12
   - transformers-base
   source-dirs: library
 
