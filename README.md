@@ -25,8 +25,8 @@ makeMock "FileSystemAction" [ts| MonadFileSystem |]
 spec = describe "copyFile" $
   it "reads a file and writes its contents to another file" $
     evaluate $ copyFile "foo.txt" "bar.txt"
-      & runMockT [ ReadFile "foo.txt" :-> "contents"
-                 , WriteFile "bar.txt" "contents" :-> () ]
+      & runMock [ ReadFile "foo.txt" :-> "contents"
+                , WriteFile "bar.txt" "contents" :-> () ]
 ```
 
 For more information, [see the documentation on Hackage][monad-mock].

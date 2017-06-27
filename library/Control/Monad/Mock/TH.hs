@@ -1,5 +1,77 @@
 {-# LANGUAGE TemplateHaskellQuotes #-}
 
+{-|
+This module provides Template Haskell functions for automatically generating
+types representing typeclass methods for use with "Control.Monad.Mock". The
+resulting datatypes can be used with 'Control.Monad.Mock.runMock' or
+'Control.Monad.Mock.runMockT' to mock out functionality in unit tests.
+
+The primary interface to this module is the 'makeAction' function, which
+generates an action GADT given a list of mtl-style typeclass constraints. For
+example, consider a typeclass that encodes side-effectful monadic operations:
+
+@
+class 'Monad' m => MonadFileSystem m where
+  readFile :: 'FilePath' -> m 'String'
+  writeFile :: 'FilePath' -> 'String' -> m ()
+@
+
+The typeclass has an obvious, straightforward instance for 'IO'. However, one
+of the main value of using a typeclass is that a alternate, pure instance may
+be provided for unit tests, which is what 'MockT' provides. Therefore, one
+might use 'makeAction' to automatically generate the necessary datatype and
+instances:
+
+@
+'makeAction' "FileSystemAction" ['ts'| MonadFileSystem |]
+@
+
+This generates three things:
+
+  1. A @FileSystemAction@ GADT with constructors that correspond to the
+     methods of @MonadFileSystem@.
+
+  2. An 'Action' instance for @FileSystemAction@.
+
+  3. A 'MonadFileSystem' instance for @'MockT' FileSystemAction m@.
+
+The generated code effectively looks like this:
+
+@
+data FileSystemAction r where
+  ReadFile :: 'FilePath' -> FileSystemAction 'String'
+  WriteFile :: 'FilePath' -> 'String' -> FileSystemAction ()
+deriving instance 'Eq' (FileSystemAction r)
+deriving instance 'Show' (FileSystemAction r)
+
+instance 'Action' FileSystemAction where
+  'eqAction' (ReadFile a) (ReadFile b)
+    = if a '==' b then 'Just' 'Refl' else 'Nothing'
+  'eqAction' (WriteFile a b) (WriteFile c d)
+    = if a '==' c && b '==' d then 'Just' 'Refl' else 'Nothing'
+  'eqAction' _ _ = 'Nothing'
+
+instance 'Monad' m => MonadFileSystem ('MockT' FileSystemAction m) where
+  readFile a = 'mockAction' "readFile" (ReadFile a)
+  writeFile a b = 'mockAction' "writeFile" (WriteFile a b)
+@
+
+This can then be used in tandem with 'Control.Monad.Mock.runMock' to unit-test
+a function that interacts with the file system in a completely pure way:
+
+@
+copyFile :: MonadFileSystem m => 'FilePath' -> 'FilePath' -> m ()
+copyFile a b = do
+  x <- readFile a
+  writeFile b x
+
+spec = describe "copyFile" '$'
+  it "reads a file and writes its contents to another file" '$'
+    'Control.Exception.evaluate' '$' copyFile "foo.txt" "bar.txt"
+      'Data.Function.&' 'runMock' [ ReadFile "foo.txt" ':->' "contents"
+                , WriteFile "bar.txt" "contents" ':->' () ]
+@
+-}
 module Control.Monad.Mock.TH (makeAction, deriveAction, ts) where
 
 import Control.Monad (replicateM, when, zipWithM)
