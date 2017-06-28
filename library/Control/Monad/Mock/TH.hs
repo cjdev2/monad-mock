@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TemplateHaskellQuotes #-}
 
 {-|
@@ -109,7 +110,7 @@ makeAction actionNameStr classTs = do
     actionCons <- concat <$> zipWithM (methodsToConstructors actionTypeCon) classTs methods
 
     let actionDec = DataD [] actionName [PlainTV actionParamName] Nothing actionCons []
-        mkStandaloneDec derivT = StandaloneDerivD [] (derivT `AppT` (actionTypeCon `AppT` VarT actionParamName))
+        mkStandaloneDec derivT = standaloneDeriveD' [] (derivT `AppT` (actionTypeCon `AppT` VarT actionParamName))
         standaloneDecs = [mkStandaloneDec (ConT ''Eq), mkStandaloneDec (ConT ''Show)]
     actionInstanceDec <- deriveAction' actionTypeCon actionCons
     classInstanceDecs <- zipWithM (mkInstance actionTypeCon) classTs methods
@@ -405,3 +406,16 @@ classMethods (ClassI (ClassD _ _ _ _ methods) _) = return $ removeDefaultSigs me
           DefaultSigD{} -> False
           _             -> True
 classMethods other = fail $ "classMethods: internal error; expected a class type, given " ++ show other
+
+{------------------------------------------------------------------------------|
+| The following definitions abstract over differences in base and              |
+| template-haskell between GHC versions. This allows the same code to work     |
+| without writing CPP everywhere and ending up with a small mess.              |
+|------------------------------------------------------------------------------}
+
+standaloneDeriveD' :: Cxt -> Type -> Dec
+#if MIN_VERSION_template_haskell(2,12,0)
+standaloneDeriveD' = StandaloneDerivD Nothing
+#else
+standaloneDeriveD' = StandaloneDerivD
+#endif

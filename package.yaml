@@ -48,7 +48,7 @@ library:
   - th-orphans
   - monad-control >= 1.0.0.0 && < 2
   - mtl
-  - template-haskell >= 2.11.0.0 && < 2.12
+  - template-haskell >= 2.11.0.0 && < 2.13
   - transformers-base
   source-dirs: library
 
