@@ -1,3 +1,8 @@
+## 0.1.1.1 (June 28th, 2017)
+
+- Added support for GHC 8.2.
+- Includes some minor documentation fixes.
+
 ## 0.1.1.0 (June 27th, 2017)
 
 - Added `Control.Monad.Mock.TH`, which provides functions for automatically generating actions using Template Haskell.
