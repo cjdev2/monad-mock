@@ -23,7 +23,7 @@ might use 'makeAction' to automatically generate the necessary datatype and
 instances:
 
 @
-'makeAction' "FileSystemAction" ['ts'| MonadFileSystem |]
+'makeAction' \"FileSystemAction\" ['ts'| MonadFileSystem |]
 @
 
 This generates three things:
@@ -33,7 +33,7 @@ This generates three things:
 
   2. An 'Action' instance for @FileSystemAction@.
 
-  3. A 'MonadFileSystem' instance for @'MockT' FileSystemAction m@.
+  3. A @MonadFileSystem@ instance for @'MockT' FileSystemAction m@.
 
 The generated code effectively looks like this:
 
@@ -68,7 +68,7 @@ copyFile a b = do
 spec = describe "copyFile" '$'
   it "reads a file and writes its contents to another file" '$'
     'Control.Exception.evaluate' '$' copyFile "foo.txt" "bar.txt"
-      'Data.Function.&' 'runMock' [ ReadFile "foo.txt" ':->' "contents"
+      'Data.Function.&' 'Control.Monad.Mock.runMock' [ ReadFile "foo.txt" ':->' "contents"
                 , WriteFile "bar.txt" "contents" ':->' () ]
 @
 -}
