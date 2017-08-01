@@ -1,4 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE CPP #-}
 
 {-|
 This module provides a monad transformer that helps create “mocks” of
@@ -89,6 +90,13 @@ import Data.Constraint.Forall (ForallF, instF)
 import Data.Functor.Identity (Identity, runIdentity)
 import Data.Type.Equality ((:~:)(..))
 
+error' :: String -> a
+#if MIN_VERSION_base(4,9,0)
+error' = errorWithoutStackTrace
+#else
+error' = error
+#endif
+
 -- | A class of types that represent typeclass method calls. The type must be of
 -- kind @* -> *@, and its type parameter should represent type of the method’s
 -- return type.
@@ -149,7 +157,7 @@ type Mock f = MockT f Identity
 runMockT :: forall f m a. (Action f, Monad m) => [WithResult f] -> MockT f m a -> m a
 runMockT actions (MockT x) = runStateT x actions >>= \case
   (r, []) -> return r
-  (_, remainingActions) -> errorWithoutStackTrace
+  (_, remainingActions) -> error'
      $ "runMockT: expected the following unexecuted actions to be run:\n"
     ++ unlines (map (\(action :-> _) -> "  " ++ showAction action) remainingActions)
 
@@ -159,12 +167,12 @@ runMock actions x = runIdentity $ runMockT actions x
 -- | Logs a method call within a mock.
 mockAction :: (Action f, Monad m) => String -> f r -> MockT f m r
 mockAction fnName action = MockT $ get >>= \case
-  [] -> errorWithoutStackTrace
+  [] -> error'
      $ "runMockT: expected end of program, called " ++ fnName ++ "\n"
     ++ "  given action: " ++ showAction action ++ "\n"
   (action' :-> r) : actions
     | Just Refl <- action `eqAction` action' -> put actions >> return r
-    | otherwise -> errorWithoutStackTrace
+    | otherwise -> error'
          $ "runMockT: argument mismatch in " ++ fnName ++ "\n"
         ++ "  given: " ++ showAction action ++ "\n"
         ++ "  expected: " ++ showAction action' ++ "\n"

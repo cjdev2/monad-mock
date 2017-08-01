@@ -86,10 +86,7 @@ resolveTypeNames :: Type -> Q Type
 resolveTypeNames (AppT a b) = AppT <$> resolveTypeNames a <*> resolveTypeNames b
 resolveTypeNames (ConT nm) = ConT <$> resolveTypeName nm
 resolveTypeNames (ForallT tyVars ctx t) = ForallT tyVars <$> mapM resolveTypeNames ctx <*> resolveTypeNames t
-resolveTypeNames (InfixT a n b) = InfixT <$> resolveTypeNames a <*> resolveTypeName n <*> resolveTypeNames b
-resolveTypeNames (ParensT t) = ParensT <$> resolveTypeNames t
 resolveTypeNames (SigT t k) = SigT <$> resolveTypeNames t <*> resolveTypeNames k
-resolveTypeNames (UInfixT a n b) = UInfixT <$> resolveTypeNames a <*> resolveTypeName n <*> resolveTypeNames b
 resolveTypeNames t@ArrowT{} = return t
 resolveTypeNames t@ConstraintT = return t
 resolveTypeNames t@EqualityT = return t
@@ -103,7 +100,12 @@ resolveTypeNames t@StarT = return t
 resolveTypeNames t@TupleT{} = return t
 resolveTypeNames t@UnboxedTupleT{} = return t
 resolveTypeNames t@VarT{} = return t
+#if MIN_VERSION_template_haskell(2,11,0)
+resolveTypeNames (InfixT a n b) = InfixT <$> resolveTypeNames a <*> resolveTypeName n <*> resolveTypeNames b
+resolveTypeNames (UInfixT a n b) = UInfixT <$> resolveTypeNames a <*> resolveTypeName n <*> resolveTypeNames b
+resolveTypeNames (ParensT t) = ParensT <$> resolveTypeNames t
 resolveTypeNames t@WildCardT = return t
+#endif
 #if MIN_VERSION_template_haskell(2,12,0)
 resolveTypeNames t@UnboxedSumT{} = return t
 #endif

@@ -1,5 +1,10 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE PatternSynonyms #-}
+#if MIN_VERSION_GLASGOW_HASKELL(8,0,1,0)
 {-# LANGUAGE TemplateHaskellQuotes #-}
+#else
+{-# LANGUAGE TemplateHaskell #-}
+#endif
 
 {-|
 This module provides Template Haskell functions for automatically generating
@@ -104,12 +109,13 @@ makeAction actionNameStr classTs = do
     actionParamName <- newName "r"
     let actionName = mkName actionNameStr
         actionTypeCon = ConT actionName
+        actionTypeParam = VarT actionParamName
 
     classInfos <- traverse reify (map unappliedTypeName classTs)
     methods <- traverse classMethods classInfos
-    actionCons <- concat <$> zipWithM (methodsToConstructors actionTypeCon) classTs methods
+    actionCons <- concat <$> zipWithM (methodsToConstructors actionTypeCon actionTypeParam) classTs methods
 
-    let actionDec = DataD [] actionName [PlainTV actionParamName] Nothing actionCons []
+    let actionDec = DataD' [] actionName [PlainTV actionParamName] actionCons
         mkStandaloneDec derivT = standaloneDeriveD' [] (derivT `AppT` (actionTypeCon `AppT` VarT actionParamName))
         standaloneDecs = [mkStandaloneDec (ConT ''Eq), mkStandaloneDec (ConT ''Show)]
     actionInstanceDec <- deriveAction' actionTypeCon actionCons
@@ -177,19 +183,18 @@ makeAction actionNameStr classTs = do
     --      To accomplish this, 'methodToConstructors' accepts two 'Type's,
     --      where the first is the action type constructor, and the second is
     --      the constraint which must be removed.
-    methodsToConstructors :: Type -> Type -> [Dec] -> Q [Con]
-    methodsToConstructors actionT classT = traverse (methodToConstructor actionT classT)
+    methodsToConstructors :: Type -> Type -> Type -> [Dec] -> Q [Con]
+    methodsToConstructors actionConT actionParamT classT = traverse (methodToConstructor actionConT actionParamT classT)
 
     -- | Converts a single class method into a constructor for an action type.
-    methodToConstructor :: Type -> Type -> Dec -> Q Con
-    methodToConstructor actionT classT (SigD name typ) = do
+    methodToConstructor :: Type -> Type -> Type -> Dec -> Q Con
+    methodToConstructor actionConT actionParamT classT (SigD name typ) = do
       let constructorName = methodNameToConstructorName name
-      newT <- replaceClassConstraint classT actionT typ
+      newT <- replaceClassConstraint classT actionConT typ
       let (tyVars, ctx, argTs, resultT) = splitFnType newT
-          noStrictness = Bang NoSourceUnpackedness NoSourceStrictness
-          gadtCon = GadtC [constructorName] (map (noStrictness,) argTs) resultT
+          gadtCon = gadtC' constructorName [actionParamT] argTs resultT
       return $ ForallC tyVars ctx gadtCon
-    methodToConstructor _ _ _ = fail "methodToConstructor: internal error; report a bug with the monad-mock package"
+    methodToConstructor _ _ _ _ = fail "methodToConstructor: internal error; report a bug with the monad-mock package"
 
     -- | Converts an ordinary term-level identifier, which starts with a
     -- lower-case letter, to a data constructor, which starts with an upper-
@@ -203,7 +208,7 @@ makeAction actionNameStr classTs = do
       mVar <- newName "m"
       methodImpls <- traverse mkInstanceMethod methodSigs
       let instanceHead = classT `AppT` (ConT ''MockT `AppT` actionT `AppT` VarT mVar)
-      return $ InstanceD Nothing [ConT ''Monad `AppT` VarT mVar] instanceHead methodImpls
+      return $ instanceD' [ConT ''Monad `AppT` VarT mVar] instanceHead methodImpls
 
     mkInstanceMethod :: Dec -> Q Dec
     mkInstanceMethod (SigD name typ) = do
@@ -276,7 +281,7 @@ deriveAction name = do
     -- | Given an 'Info', asserts that it represents a type constructor and extracts
     -- its type and constructors.
     extractActionInfo :: Info -> Q (Type, [Con])
-    extractActionInfo (TyConI (DataD _ actionName _ _ cons _))
+    extractActionInfo (TyConI (DataD' _ actionName _ cons))
       = return (ConT actionName, cons)
     extractActionInfo _
       = fail "deriveAction: expected type constructor"
@@ -289,7 +294,7 @@ deriveAction' :: Type -> [Con] -> Q Dec
 deriveAction' tyCon dataCons = do
     eqActionDec <- deriveEqAction dataCons
     let instanceHead = ConT ''Action `AppT` tyCon
-    return $ InstanceD Nothing [] instanceHead [eqActionDec]
+    return $ instanceD' [] instanceHead [eqActionDec]
   where
     -- | Given a list of constructors for a particular type, generates a definition
     -- of 'eqAction'.
@@ -326,10 +331,12 @@ conName (NormalC name _) = name
 conName (RecC name _) = name
 conName (InfixC _ name _) = name
 conName (ForallC _ _ con) = conName con
+#if MIN_VERSION_template_haskell(2,11,0)
 conName (GadtC [name] _ _) = name
 conName (GadtC names _ _) = error $ "conName: internal error; non-singleton GADT constructor names: " ++ show names
 conName (RecGadtC [name] _ _) = name
 conName (RecGadtC names _ _) = error $ "conName: internal error; non-singleton GADT record constructor names: " ++ show names
+#endif
 
 -- | Extracts the number of arguments a 'Con' accepts.
 conNumArgs :: Con -> Int
@@ -337,8 +344,10 @@ conNumArgs (NormalC _ bts) = length bts
 conNumArgs (RecC _ vbts) = length vbts
 conNumArgs (InfixC _ _ _) = 2
 conNumArgs (ForallC _ _ con) = conNumArgs con
+#if MIN_VERSION_template_haskell(2,11,0)
 conNumArgs (GadtC _ bts _) = length bts
 conNumArgs (RecGadtC _ vbts _) = length vbts
+#endif
 
 -- | Given a potentially applied type, like @T a b@, returns the base, unapplied
 -- type name, like @T@.
@@ -413,9 +422,41 @@ classMethods other = fail $ "classMethods: internal error; expected a class type
 | without writing CPP everywhere and ending up with a small mess.              |
 |------------------------------------------------------------------------------}
 
+pattern DataD' :: Cxt -> Name -> [TyVarBndr] -> [Con] -> Dec
+#if MIN_VERSION_template_haskell(2,11,0)
+pattern DataD' a b c d = DataD a b c Nothing d []
+#else
+pattern DataD' a b c d = DataD a b c d []
+#endif
+
+instanceD' :: Cxt -> Type -> [Dec] -> Dec
+#if MIN_VERSION_template_haskell(2,11,0)
+instanceD' = InstanceD Nothing
+#else
+instanceD' = InstanceD
+#endif
+
 standaloneDeriveD' :: Cxt -> Type -> Dec
 #if MIN_VERSION_template_haskell(2,12,0)
 standaloneDeriveD' = StandaloneDerivD Nothing
 #else
 standaloneDeriveD' = StandaloneDerivD
+#endif
+
+#if MIN_VERSION_template_haskell(2,11,0)
+noStrictness :: Bang
+noStrictness = Bang NoSourceUnpackedness NoSourceStrictness
+#else
+noStrictness :: Strict
+noStrictness = NotStrict
+#endif
+
+gadtC' :: Name -> [Type] -> [Type] -> Type -> Con
+#if MIN_VERSION_template_haskell(2,11,0)
+gadtC' nm _ args result = GadtC [nm] (map (noStrictness,) args) result
+#else
+gadtC' nm vars args result = ForallC [] equalities (NormalC nm (map (noStrictness,) args))
+  where
+    equalities = reverse $ zipWith equalsT (reverse vars) (reverse $ typeArgs result)
+    equalsT x y = EqualityT `AppT` x `AppT` y
 #endif

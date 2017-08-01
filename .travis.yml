@@ -11,6 +11,10 @@ cache:
 # cache file per set of arguments.
 matrix:
   include:
+  - env: ARGS="--resolver lts-6"
+    compiler: ": #stack 7.10.3"
+    addons: { apt: { packages: [libgmp-dev] } }
+
   - env: ARGS="--resolver lts-7"
     compiler: ": #stack 8.0.1"
     addons: { apt: { packages: [libgmp-dev] } }
@@ -19,7 +23,7 @@ matrix:
     compiler: ": #stack 8.0.2"
     addons: { apt: { packages: [libgmp-dev] } }
 
-  - env: ARGS="--stack-yaml stack.ghc-8.2.yaml"
+  - env: ARGS="--resolver nightly-2017-07-31"
     compiler: ": #stack 8.2.1"
     addons: { apt: { packages: [libgmp-dev] } }
 
