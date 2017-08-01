@@ -1,3 +1,7 @@
+## 0.1.1.2 (August 1st, 2017)
+
+- Added support for GHC 7.10.
+
 ## 0.1.1.1 (June 28th, 2017)
 
 - Added support for GHC 8.2.
