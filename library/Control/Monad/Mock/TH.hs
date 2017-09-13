@@ -206,9 +206,33 @@ makeAction actionNameStr classTs = do
     mkInstance :: Type -> Type -> [Dec] -> Q Dec
     mkInstance actionT classT methodSigs = do
       mVar <- newName "m"
-      methodImpls <- traverse mkInstanceMethod methodSigs
+
+      -- In order to calculate the constraints on the instance, we need to look
+      -- at the superclasses of the class we're deriving an instance for. For
+      -- example, given some class:
+      --
+      --   class (AsSomething e, MonadError e m) => MonadFoo e m | m -> e
+      --
+      -- ...if we are asked to derive an instance for @MonadFoo Something@, then
+      -- we need to generate an instance with a constraint like the following:
+      --
+      --   instance (AsSomething Something, MonadError Something m)
+      --     => MonadFoo Something (MockT Action m)
+      --
+      -- To do that, we just need to look at the binders of the class, then
+      -- use that to build a substitution that can be applied to the superclass
+      -- constraints.
+      (ClassI (ClassD classContext _ classBindVars _ _) _) <- reify $ unappliedTypeName classT
+      let classBinds = map tyVarBndrName classBindVars
+          instanceBinds = typeArgs classT ++ [VarT mVar]
+          classBindsToInstanceBinds = zip classBinds instanceBinds
+          contextSubFns = map (uncurry substituteTypeVar) classBindsToInstanceBinds
+          instanceContext = foldr map classContext contextSubFns
+
       let instanceHead = classT `AppT` (ConT ''MockT `AppT` actionT `AppT` VarT mVar)
-      return $ instanceD' [ConT ''Monad `AppT` VarT mVar] instanceHead methodImpls
+      methodImpls <- traverse mkInstanceMethod methodSigs
+
+      return $ instanceD' instanceContext instanceHead methodImpls
 
     mkInstanceMethod :: Dec -> Q Dec
     mkInstanceMethod (SigD name typ) = do

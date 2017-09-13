@@ -60,8 +60,9 @@ tests:
   monad-stub-test-suite:
     dependencies:
     - base
-    - monad-mock
     - hspec
+    - monad-mock
+    - mtl
     ghc-options:
     - -rtsopts
     - -threaded
