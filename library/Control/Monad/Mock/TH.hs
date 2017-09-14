@@ -146,13 +146,13 @@ makeAction actionNameStr classTs = do
       when (length classArgs == length classVars) $
         fail $ "makeAction: cannot derive instance for fully saturated constraint\n"
             ++ "      in: " ++ show (ppr classType) ++ "\n"
-            ++ "      expected: * -> " ++ constraintStr ++ "\n"
+            ++ "      expected: (* -> *) -> " ++ constraintStr ++ "\n"
             ++ "      given: " ++ constraintStr
 
       when (length classArgs < length classVars - 1) $
         fail $ "makeAction: cannot derive instance for multi-parameter typeclass\n"
             ++ "      in: " ++ show (ppr classType) ++ "\n"
-            ++ "      expected: * -> " ++ constraintStr ++ "\n"
+            ++ "      expected: (* -> *) -> " ++ constraintStr ++ "\n"
             ++ "      given: " ++ show (ppr (mkClassKind $ drop (length classArgs) classVars))
 
     -- | Converts a class’s methods to constructors for an action type. There
