@@ -1,3 +1,7 @@
+## 0.2.0.0 (September 14th, 2017)
+
+- `Control.Monad.Mock.TH` is smarter about deriving instances for classes with superclass contexts: the derived context is based on superclasses rather than being hardcoded to `Monad m`.
+
 ## 0.1.1.2 (August 1st, 2017)
 
 - Added support for GHC 7.10.
