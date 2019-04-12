@@ -81,6 +81,7 @@ spec = describe "copyFile" '$'
 module Control.Monad.Mock.TH (makeAction, deriveAction, ts) where
 
 import Control.Monad (replicateM, when, zipWithM)
+import Control.Monad.Primitive (PrimMonad, PrimState)
 import Data.Char (toUpper)
 import Data.Foldable (traverse_)
 import Data.List (foldl', nub, partition)
@@ -89,6 +90,7 @@ import GHC.Exts (Constraint)
 import Language.Haskell.TH
 
 import Control.Monad.Mock (Action(..), MockT, mockAction)
+import qualified Control.Monad.Mock.Stateless as Stateless
 import Control.Monad.Mock.TH.Internal.TypesQuasi (ts)
 
 -- | Given a list of monadic typeclass constraints of kind @* -> 'Constraint'@,
@@ -119,9 +121,12 @@ makeAction actionNameStr classTs = do
         mkStandaloneDec derivT = standaloneDeriveD' [] (derivT `AppT` (actionTypeCon `AppT` VarT actionParamName))
         standaloneDecs = [mkStandaloneDec (ConT ''Eq), mkStandaloneDec (ConT ''Show)]
     actionInstanceDec <- deriveAction' actionTypeCon actionCons
-    classInstanceDecs <- zipWithM (mkInstance actionTypeCon) classTs methods
+    classInstanceDecs1 <- zipWithM (mkInstance (ConT ''MockT) (const []) actionTypeCon) classTs methods
+    primStateVar <- newName "s"
+    let primStateConstraint baseM = [ConT ''PrimMonad `AppT` baseM, EqualityT `AppT` VarT primStateVar `AppT` (ConT ''PrimState `AppT` baseM)]
+    classInstanceDecs2 <- zipWithM (mkInstance (ConT ''Stateless.MockT_ `AppT` VarT primStateVar) primStateConstraint actionTypeCon) classTs methods
 
-    return $ [actionDec] ++ standaloneDecs ++ [actionInstanceDec] ++ classInstanceDecs
+    return $ [actionDec] ++ standaloneDecs ++ [actionInstanceDec] ++ classInstanceDecs1 ++ classInstanceDecs2
   where
     -- | Ensures that a provided constraint is something monad-mock can actually
     -- derive an instance for. Specifically, it must be a constraint of kind
@@ -203,8 +208,8 @@ makeAction actionNameStr classTs = do
     methodNameToConstructorName name = mkName (toUpper c : cs)
       where (c:cs) = nameBase name
 
-    mkInstance :: Type -> Type -> [Dec] -> Q Dec
-    mkInstance actionT classT methodSigs = do
+    mkInstance :: Type -> (Type -> [Pred]) -> Type -> Type -> [Dec] -> Q Dec
+    mkInstance mockT mkExtraConstraints actionT classT methodSigs = do
       mVar <- newName "m"
 
       -- In order to calculate the constraints on the instance, we need to look
@@ -229,10 +234,10 @@ makeAction actionNameStr classTs = do
           contextSubFns = map (uncurry substituteTypeVar) classBindsToInstanceBinds
           instanceContext = foldr map classContext contextSubFns
 
-      let instanceHead = classT `AppT` (ConT ''MockT `AppT` actionT `AppT` VarT mVar)
+      let instanceHead = classT `AppT` (mockT `AppT` actionT `AppT` VarT mVar)
       methodImpls <- traverse mkInstanceMethod methodSigs
 
-      return $ instanceD' instanceContext instanceHead methodImpls
+      return $ instanceD' (instanceContext ++ mkExtraConstraints (VarT mVar)) instanceHead methodImpls
 
     mkInstanceMethod :: Dec -> Q Dec
     mkInstanceMethod (SigD name typ) = do

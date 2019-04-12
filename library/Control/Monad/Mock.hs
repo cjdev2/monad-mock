@@ -63,12 +63,15 @@ boilerplate, look at 'Control.Monad.Mock.TH.makeAction' from
 "Control.Monad.Mock.TH".
 -}
 module Control.Monad.Mock
-  ( -- * The MockT monad transformer
-    MockT
+  (
+  -- * The MonadMock class
+    MonadMock(..)
+
+  -- * The MockT monad transformer
+  , MockT
   , Mock
   , runMockT
   , runMock
-  , mockAction
 
   -- * Actions and actions with results
   , Action(..)
@@ -164,15 +167,18 @@ runMockT actions (MockT x) = runStateT x actions >>= \case
 runMock :: forall f a. Action f => [WithResult f] -> Mock f a -> a
 runMock actions x = runIdentity $ runMockT actions x
 
--- | Logs a method call within a mock.
-mockAction :: (Action f, Monad m) => String -> f r -> MockT f m r
-mockAction fnName action = MockT $ get >>= \case
-  [] -> error'
-     $ "runMockT: expected end of program, called " ++ fnName ++ "\n"
-    ++ "  given action: " ++ showAction action ++ "\n"
-  (action' :-> r) : actions
-    | Just Refl <- action `eqAction` action' -> put actions >> return r
-    | otherwise -> error'
-         $ "runMockT: argument mismatch in " ++ fnName ++ "\n"
-        ++ "  given: " ++ showAction action ++ "\n"
-        ++ "  expected: " ++ showAction action' ++ "\n"
+class MonadMock f m where
+  -- | Logs a method call within a mock.
+  mockAction :: Action f => String -> f r -> m r
+
+instance Monad m => MonadMock f (MockT f m) where
+  mockAction fnName action = MockT $ get >>= \case
+    [] -> error'
+      $ "runMockT: expected end of program, called " ++ fnName ++ "\n"
+      ++ "  given action: " ++ showAction action ++ "\n"
+    (action' :-> r) : actions
+      | Just Refl <- action `eqAction` action' -> put actions >> return r
+      | otherwise -> error'
+          $ "runMockT: argument mismatch in " ++ fnName ++ "\n"
+          ++ "  given: " ++ showAction action ++ "\n"
+          ++ "  expected: " ++ showAction action' ++ "\n"
