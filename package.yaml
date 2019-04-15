@@ -48,6 +48,7 @@ library:
   - th-orphans
   - monad-control >= 1.0.0.0 && < 2
   - mtl
+  - primitive
   - template-haskell >= 2.10.0.0 && < 2.13
   - transformers-base
   when:
