@@ -1,5 +1,8 @@
+{-# LANGUAGE DataKinds  #-}
+{-# LANGUAGE PolyKinds  #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE CPP                  #-}
+{-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | A version of 'MockT' with a stateless 'MonadTransControl' instance
@@ -45,7 +48,8 @@ newtype MockT_ s f m a = MockT (ReaderT (MutVar s [WithResult f]) m a)
   deriving ( Functor, Applicative, Monad, MonadTrans, MonadIO, MonadBase b
            , MonadState st, MonadCont, MonadError e, MonadWriter w
            , MonadCatch, MonadThrow, MonadMask
-           , MonadBaseControl b, MonadTransControl )
+           , MonadBaseControl b, MonadTransControl
+           , PrimMonad)
 
 instance MonadReader r m => MonadReader r (MockT_ s f m) where
   ask = lift ask
