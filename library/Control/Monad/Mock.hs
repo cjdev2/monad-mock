@@ -82,6 +82,7 @@ import Control.Monad.Base (MonadBase)
 import Control.Monad.Catch (MonadCatch, MonadThrow, MonadMask)
 import Control.Monad.Cont (MonadCont)
 import Control.Monad.Except (MonadError)
+import Control.Monad.Fix
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader (MonadReader)
 import Control.Monad.State (StateT, MonadState(..), runStateT)
@@ -132,7 +133,7 @@ data WithResult f where
 -- f m a@, @f@ should be an 'Action', which should be a GADT that represents a
 -- reified version of typeclass method calls.
 newtype MockT f m a = MockT (StateT [WithResult f] m a)
-  deriving ( Functor, Applicative, Monad, MonadTrans, MonadIO, MonadBase b
+  deriving ( Functor, Applicative, Monad, MonadTrans, MonadIO, MonadFix, MonadBase b
            , MonadReader r, MonadCont, MonadError e, MonadWriter w
            , MonadCatch, MonadThrow, MonadMask )
 

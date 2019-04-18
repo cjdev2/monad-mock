@@ -27,6 +27,7 @@ import Control.Monad.Base (MonadBase)
 import Control.Monad.Catch (MonadCatch, MonadThrow, MonadMask)
 import Control.Monad.Cont (MonadCont)
 import Control.Monad.Except (MonadError)
+import Control.Monad.Fix
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Primitive (PrimMonad(..))
 import Control.Monad.Reader (ReaderT(..), MonadReader(..))
@@ -45,10 +46,10 @@ type MockT f m = MockT_ (PrimState m) f m
 type Mock s f = MockT f (ST s)
 
 newtype MockT_ s f m a = MockT (ReaderT (MutVar s [WithResult f]) m a)
-  deriving ( Functor, Applicative, Monad, MonadTrans, MonadIO, MonadBase b
+  deriving ( Functor, Applicative, Monad, MonadTrans, MonadIO, MonadFix
            , MonadState st, MonadCont, MonadError e, MonadWriter w
            , MonadCatch, MonadThrow, MonadMask
-           , MonadBaseControl b, MonadTransControl
+           , MonadBase b, MonadBaseControl b, MonadTransControl
            , PrimMonad)
 
 instance MonadReader r m => MonadReader r (MockT_ s f m) where
