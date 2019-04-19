@@ -28,31 +28,37 @@ import Control.Monad.Catch (MonadCatch, MonadThrow, MonadMask)
 import Control.Monad.Cont (MonadCont)
 import Control.Monad.Except (MonadError)
 import Control.Monad.Fix
+import Control.Monad.Identity
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Primitive (PrimMonad(..))
 import Control.Monad.Reader (ReaderT(..), MonadReader(..))
 import Control.Monad.State (MonadState)
 import Control.Monad.ST (ST, runST)
 import Control.Monad.Trans (MonadTrans(..))
-import Control.Monad.Trans.Control (MonadBaseControl, MonadTransControl)
+import Control.Monad.Trans.Control
 import Control.Monad.Writer (MonadWriter)
 import Data.Primitive.MutVar (MutVar, newMutVar, readMutVar, writeMutVar)
 import Data.Type.Equality ((:~:)(..))
 
-import Control.Monad.Mock (Action(..), MonadMock(..), WithResult(..))
+import Control.Monad.Mock (Action(..), MonadMock(..))
 
-type MockT f m = MockT_ (PrimState m) f m
+type MockT f m = MockT_ (PrimState m) f m m
 
 type Mock s f = MockT f (ST s)
 
-newtype MockT_ s f m a = MockT (ReaderT (MutVar s [WithResult f]) m a)
-  deriving ( Functor, Applicative, Monad, MonadTrans, MonadIO, MonadFix
+-- | Represents both an expected call (an 'Action') and its expected result.
+data WithResult m f where
+  (:->) :: f r -> m r -> WithResult m f
+
+newtype MockT_ s f n m a = MockT (ReaderT (MutVar s [WithResult n f]) m a)
+  deriving ( Functor, Applicative, Monad, MonadIO, MonadFix
            , MonadState st, MonadCont, MonadError e, MonadWriter w
            , MonadCatch, MonadThrow, MonadMask
-           , MonadBase b, MonadBaseControl b, MonadTransControl
+           , MonadTrans, MonadTransControl
+           , MonadBase b, MonadBaseControl b
            , PrimMonad)
 
-instance MonadReader r m => MonadReader r (MockT_ s f m) where
+instance MonadReader r m => MonadReader r (MockT_ s f n m) where
   ask = lift ask
   local f (MockT act) = MockT $ do
     env <- ask
@@ -60,7 +66,7 @@ instance MonadReader r m => MonadReader r (MockT_ s f m) where
 
 runMockT :: forall f m a .
             (Action f, PrimMonad m) =>
-            [WithResult f] -> MockT f m a -> m a
+            [WithResult m f] -> MockT f m a -> m a
 runMockT actions (MockT x) = do
   ref <- newMutVar actions
   r <- runReaderT x ref
@@ -71,10 +77,10 @@ runMockT actions (MockT x) = do
       $ "runMockT: expected the following unexecuted actions to be run:\n"
       ++ unlines (map (\(action :-> _) -> "  " ++ showAction action) remainingActions)
 
-runMock :: forall f a. Action f => [WithResult f] -> (forall s. Mock s f a) -> a
-runMock actions x = runST $ runMockT actions x
+runMock :: forall f a. Action f => [WithResult Identity f] -> (forall s. Mock s f a) -> a
+runMock actions x = runST $ runMockT (map (\(a :-> b) -> a :-> return(runIdentity b)) actions) x
 
-instance (PrimMonad m, PrimState m ~ s) => MonadMock f (MockT_ s f m) where
+instance (PrimMonad m, PrimState m ~ s) => MonadMock f (MockT_ s f m m) where
   mockAction fnName action = MockT $ do
     ref <- ask
     results <- lift $ readMutVar ref
@@ -85,7 +91,7 @@ instance (PrimMonad m, PrimState m ~ s) => MonadMock f (MockT_ s f m) where
       (action' :-> r) : actions
         | Just Refl <- action `eqAction` action' -> do
             lift $ writeMutVar ref actions
-            return r
+            lift r
         | otherwise -> error'
             $ "runMockT: argument mismatch in " ++ fnName ++ "\n"
             ++ "  given: " ++ showAction action ++ "\n"
