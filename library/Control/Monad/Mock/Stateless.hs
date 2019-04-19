@@ -48,7 +48,10 @@ type Mock s f = MockT f (ST s)
 
 -- | Represents both an expected call (an 'Action') and its expected result.
 data WithResult m f where
-  (:->) :: f r -> m r -> WithResult m f
+  -- | Matches a specific command
+  (:->)     :: f r -> m r -> WithResult m f
+  -- | Skips commands as long as the predicate returns something
+  SkipWhile :: (forall r. f r -> Maybe (m r)) -> WithResult m f
 
 newtype MockT_ s f n m a = MockT (ReaderT (MutVar s [WithResult n f]) m a)
   deriving ( Functor, Applicative, Monad, MonadIO, MonadFix
@@ -81,13 +84,19 @@ runMock :: forall f a. Action f => [WithResult Identity f] -> (forall s. Mock s 
 runMock actions x = runST $ runMockT (map (\(a :-> b) -> a :-> return(runIdentity b)) actions) x
 
 instance (PrimMonad m, PrimState m ~ s) => MonadMock f (MockT_ s f m m) where
-  mockAction fnName action = MockT $ do
-    ref <- ask
+  mockAction fnName action = do
+    ref <- MockT ask
     results <- lift $ readMutVar ref
     case results of
       [] -> error'
         $ "runMockT: expected end of program, called " ++ fnName ++ "\n"
         ++ "  given action: " ++ showAction action ++ "\n"
+      SkipWhile f : actions
+        | Just res <- f action
+        -> lift res
+        | otherwise -> do
+            lift $ writeMutVar ref actions
+            mockAction fnName action
       (action' :-> r) : actions
         | Just Refl <- action `eqAction` action' -> do
             lift $ writeMutVar ref actions
