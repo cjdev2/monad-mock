@@ -24,6 +24,7 @@ extra-source-files:
 - stack.yaml
 
 ghc-options: -Wall
+
 default-extensions:
 - DefaultSignatures
 - FlexibleContexts
@@ -40,15 +41,15 @@ default-extensions:
 
 library:
   dependencies:
-  - base >= 4.8.0.0 && < 5
-  - constraints >= 0.3.1
-  - exceptions >= 0.6
+  - base
+  - constraints
+  - exceptions
   - haskell-src-exts
   - haskell-src-meta
   - th-orphans
-  - monad-control >= 1.0.0.0 && < 2
+  - monad-control
   - mtl
-  - template-haskell >= 2.10.0.0 && < 2.13
+  - template-haskell
   - transformers-base
   when:
   - condition: impl(ghc < 8)
