@@ -27,6 +27,30 @@ matrix:
     compiler: ": #stack 8.2.1"
     addons: { apt: { packages: [libgmp-dev] } }
 
+  - env: ARGS="--resolver lts-11.22"
+    compiler: ": #stack 8.2.2"
+    addons: { apt: { packages: [libgmp-dev] } }
+
+  - env: ARGS="--resolver lts-12.14"
+    compiler: ": #stack 8.4.3"
+    addons: { apt: { packages: [libgmp-dev] } }
+
+  - env: ARGS="--resolver lts-12.26"
+    compiler: ": #stack 8.4.4"
+    addons: { apt: { packages: [libgmp-dev] } }
+
+  - env: ARGS="--resolver lts-13.11"
+    compiler: ": #stack 8.6.3"
+    addons: { apt: { packages: [libgmp-dev] } }
+
+  - env: ARGS="--resolver lts-13.19"
+    compiler: ": #stack 8.6.4"
+    addons: { apt: { packages: [libgmp-dev] } }
+
+  - env: ARGS="--resolver lts-14.20"
+    compiler: ": #stack 8.6.5"
+    addons: { apt: { packages: [libgmp-dev] } }
+
   - env: ARGS="--resolver nightly"
     compiler: ": #stack nightly"
     addons: { apt: { packages: [libgmp-dev] } }
